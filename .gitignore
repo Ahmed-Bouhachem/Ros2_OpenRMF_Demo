@@ -1,0 +1,14 @@
+build/
+install/
+log/
+
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+.rmf_schedule_node.yaml
+.codex
+.agents/
+
+.vscode/

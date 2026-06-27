@@ -1,0 +1,4 @@
+name: agv_demo_editor
+version: 1
+building:
+  filename: agv_demo.building.yaml
