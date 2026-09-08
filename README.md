@@ -5,7 +5,8 @@ with ROS 2 Jazzy. The goal was to start from the official Open-RMF fleet
 adapter template, understand the parts that make RMF move robots, and turn it
 into a visible RViz demo with fake AGVs, a navigation graph, task submission,
 status inspection, pause/resume controls, and a larger warehouse-style route
-network.
+network. It now includes simulated 360-degree LiDAR on all four AGVs, with
+independent scan topics and colored scan returns in RViz.
 
 The project is intentionally small. It does not use real robots, SLAM, a real
 warehouse map, or a production fleet manager. Instead, it focuses on the core
@@ -219,6 +220,54 @@ it automatically.
 
 ## Running The Demo
 
+### Four-car LiDAR recording
+
+Each AGV now has a simulated 360-degree planar LiDAR: 360 samples, 8 m maximum
+range, and 10 scans/second. RViz opens with four color-matched LaserScan displays,
+light scan beams, and warehouse walls/racks. Scans detect the nearest obstacle
+or another car, and update as the cars move. The camera includes the full scene.
+
+![Four cars with simulated LiDAR in RViz](images/rviz-four-cars-lidar.png)
+
+Rebuild after pulling these changes, then start a fresh demo:
+
+```bash
+cd ~/rmf_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --packages-select fleet_adapter_template
+scripts/stop_rmf_demo.sh
+scripts/start_rmf_demo.sh
+```
+
+In a second terminal, start your screen recording while the four cars are at
+their chargers, then submit the showcase:
+
+```bash
+cd ~/rmf_ws
+scripts/rmf_task.sh showcase
+```
+
+Capture the colored scan returns on the walls and racks as cars move, then
+zoom in on cars detecting each other near the shared traffic zone. The RViz
+Displays panel lets you toggle each `AGV1 LiDAR` through `AGV4 LiDAR` display;
+disable the `AGV*_lidar_rays` namespaces under `LiDAR scene and beams` if you
+prefer only scan points. Use `scripts/rmf_task.sh pause_all` and `resume_all`
+to hold/release the cars for close-ups (RMF task time continues while paused).
+For a repeat take, stop and restart the demo so tasks and poses start fresh.
+
+Scan topics are `/AGV1/scan`, `/AGV2/scan`, `/AGV3/scan`, and `/AGV4/scan`, using
+`sensor_msgs/msg/LaserScan` with sensor-data QoS (best effort). Each scan uses
+its car's `AGVn/lidar` TF frame, 0.44 m above the base. Scans and car transforms
+share a timestamp. Scans stop if fleet updates are absent for two seconds.
+The same sensors run with `scripts/start_rmf_demo.sh --headless`.
+
+`lidar_scene.yaml` defines the boxes used both for scan intersection and RViz
+obstacles. This is a deterministic 2D ray-casting demo, with other cars modeled
+as rectangular footprints; it does not model sensor noise, rolling scans, or
+Gazebo physics. LiDAR is visualization/sensor output here, not an input to
+obstacle avoidance, SLAM, or RMF navigation. Keep scene obstacles clear of the
+navigation lanes when editing them.
+
 Start the full demo:
 
 ```bash
@@ -239,6 +288,12 @@ In another terminal, send the showcase task set:
 cd ~/rmf_ws
 scripts/rmf_task.sh showcase
 ```
+
+Launching the demo leaves the cars at their chargers until tasks are submitted.
+The start script includes six seconds of startup waits for the ROS components.
+After `showcase`, movement begins as RMF assigns tasks; the dispatcher uses a
+two-second bidding window, so all four cars do not necessarily start together.
+The showcase command continues printing status while the robots are moving.
 
 Print the current robot state:
 
@@ -319,6 +374,30 @@ By the end of this workspace, I had:
   the larger four-AGV route demo
 
 ## Validation
+
+The LiDAR update was checked with six geometry tests covering nearest-hit
+occlusion, no returns and maximum range, the near-sensor blind zone, rotated
+car footprints, sensor position/orientation, and moving targets. Run them with:
+
+```bash
+cd ~/rmf_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+python3 -m pytest -q src/fleet_adapter_template/fleet_adapter_template/test/test_lidar_geometry.py
+```
+
+The update was also checked in the running ROS 2/RViz demo:
+
+- All four scan topics published at 10 Hz, with 360 samples per scan.
+- Scan transforms resolved to `map` at their acquisition timestamps and the
+  configured 0.44 m sensor height.
+- Scan returns changed while every car moved during the showcase.
+- RMF accepted all twelve showcase tasks.
+- RViz rendered the warehouse obstacles, scan points, and scan beams.
+- The new geometry, sensor, and geometry-test modules passed Flake8 checks.
+
+These checks verify the simulated sensor output and demo integration; they
+do not validate a physical LiDAR or a collision-avoidance controller.
 
 The workspace was built with:
 

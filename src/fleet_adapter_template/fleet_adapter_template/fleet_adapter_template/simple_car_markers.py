@@ -27,6 +27,8 @@ from tf2_ros import TransformBroadcaster
 from visualization_msgs.msg import Marker, MarkerArray
 import yaml
 
+from .simple_lidar import SimpleLidar
+
 
 def quaternion_from_yaw(yaw):
     return (0.0, 0.0, math.sin(yaw / 2.0), math.cos(yaw / 2.0))
@@ -39,6 +41,7 @@ class SimpleAgvMarkers(Node):
             MarkerArray, '/simple_agvs/markers', 10
         )
         self.tf_broadcaster = TransformBroadcaster(self)
+        self.lidar = SimpleLidar(self)
         self.robots = {}
         self.robot_marker_bases = {}
         self.clear_markers_pending = True
@@ -174,9 +177,12 @@ class SimpleAgvMarkers(Node):
                     for location in robot.path
                 ],
                 'color': self.color_for_robot(robot.name),
+                'received_at': self.get_clock().now().nanoseconds,
             }
 
     def publish_agvs(self):
+        now = self.get_clock().now()
+        stamp = now.to_msg()
         marker_array = MarkerArray()
         if self.clear_markers_pending:
             marker_array.markers.append(self.make_clear_marker())
@@ -191,7 +197,7 @@ class SimpleAgvMarkers(Node):
             y = agv['y']
             yaw = agv['yaw']
 
-            self.publish_tf(agv['name'], x, y, yaw)
+            self.publish_tf(agv['name'], x, y, yaw, stamp)
             marker_array.markers.extend(
                 self.make_route_markers(
                     self.marker_base_for_robot(agv['name']) + 20,
@@ -209,6 +215,10 @@ class SimpleAgvMarkers(Node):
             )
 
         self.marker_pub.publish(marker_array)
+        self.lidar.publish([
+            agv for agv in agvs
+            if 0 <= now.nanoseconds - agv['received_at'] < 2_000_000_000
+        ], stamp)
 
     def marker_base_for_robot(self, robot_name):
         if robot_name not in self.robot_marker_bases:
@@ -369,6 +379,8 @@ class SimpleAgvMarkers(Node):
         lines = [
             'Open-RMF decision board',
             'Task dispatcher chooses fleet + AGV',
+            f'{len(self.robots)} simulated LiDARs | 360 degrees | '
+            f'{self.lidar.range_max:g} m | 10 Hz',
         ]
 
         active = []
@@ -571,12 +583,15 @@ class SimpleAgvMarkers(Node):
         return (0.62, 0.66, 0.70, 1.0)
 
     def color_for_robot(self, robot_name):
-        color_index = sum(ord(char) for char in robot_name)
+        if robot_name.startswith('AGV') and robot_name[3:].isdigit():
+            color_index = int(robot_name[3:]) - 1
+        else:
+            color_index = sum(ord(char) for char in robot_name)
         return self.agv_colors[color_index % len(self.agv_colors)]
 
-    def publish_tf(self, child_frame, x, y, yaw):
+    def publish_tf(self, child_frame, x, y, yaw, stamp):
         transform = TransformStamped()
-        transform.header.stamp = self.get_clock().now().to_msg()
+        transform.header.stamp = stamp
         transform.header.frame_id = 'map'
         transform.child_frame_id = child_frame
         transform.transform.translation.x = x
@@ -664,7 +679,7 @@ class SimpleAgvMarkers(Node):
             yaw,
             0.16,
             0.10,
-            (0.02, 0.025, 0.03, 1.0),
+            color,
         )
         beacon = self.make_sphere(
             marker_id + 7,

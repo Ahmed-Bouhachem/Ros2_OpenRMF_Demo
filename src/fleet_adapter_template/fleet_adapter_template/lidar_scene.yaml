@@ -1,0 +1,10 @@
+# All dimensions are metres in the demo's L1/map frame. Obstacles sit clear
+# of the navigation lanes. These boxes define both rendering and scan returns.
+obstacles:
+  - {name: south_wall, x: 3.75, y: -2.7, length: 10.0, width: 0.10, height: 0.8}
+  - {name: north_wall, x: 3.75, y: 5.8, length: 10.0, width: 0.10, height: 0.8}
+  - {name: west_wall, x: -1.2, y: 1.55, length: 0.10, width: 8.5, height: 0.8}
+  - {name: east_wall, x: 8.7, y: 1.55, length: 0.10, width: 8.5, height: 0.8}
+  - {name: storage_rack_1, x: 0.55, y: 4.45, length: 0.5, width: 0.7, height: 0.7}
+  - {name: storage_rack_2, x: 5.05, y: 4.9, length: 0.5, width: 0.4, height: 0.7}
+  - {name: storage_rack_3, x: 4.45, y: -2.2, length: 1.5, width: 0.3, height: 0.7}

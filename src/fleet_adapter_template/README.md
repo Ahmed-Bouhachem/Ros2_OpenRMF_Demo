@@ -65,6 +65,18 @@ ros2 run fleet_adapter_template fleet_adapter -c CONFIG_FILE -n NAV_GRAPH -s ws:
 
 ## Simple four-AGV visualization demo
 
+The demo now includes simulated 360-degree LiDAR for all four AGVs. Each car
+publishes a `sensor_msgs/msg/LaserScan` on `/AGV1/scan` through `/AGV4/scan` at
+10 Hz. RViz loads the scan displays, warehouse obstacles, and colored beams
+automatically. See the [workspace recording guide](../../README.md#four-car-lidar-recording)
+for the screenshot, rebuild/start commands, recording workflow, and limitations.
+
+The implementation is split between `lidar_geometry.py` (planar intersections)
+and `simple_lidar.py` (scan/TF/marker publication), called by
+`simple_car_markers.py`. `lidar_scene.yaml` supplies the same obstacle boxes to
+both the scan simulator and the renderer. Sensors follow the fleet's simulated
+poses; they do not drive navigation or obstacle avoidance.
+
 This workspace also contains a small learning visualizer that draws RMF robots
 as simple AGV-shaped objects in RViz.
 
